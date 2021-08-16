@@ -4,11 +4,13 @@ let target = "https://www.wanted.co.kr/api/v4/jobs?";
 
 
 const puppeteer = require("puppeteer");
-const axios = require("axios");
+// const axios = require("axios");
 
 async function main(){
     let browser = await puppeteer.launch({ headless: true, devtools: true, defaultViewport: null });
     let page = await browser.newPage();
+    let requestSender = await browser.newPage();
+
 
     let status = true;
     let offset = 0;
@@ -52,16 +54,33 @@ async function main(){
                 // position:        parsedJobList[idx].position
                 // 
                 
-                axios.post(
-                    "http://127.0.0.1:3000/postjob",{
-                        company_name: parsedJobList[idx].company.name,
-                        page_id: parsedJobList[idx].id,
-                        company_address: parsedJobList[idx].address.country + parsedJobList[idx].address.location,
-                        hiring_position: parsedJobList[idx].position
-                    }
-                ).then((res)=>{
-                    console.log(res);
+                // axios.post(
+                //     "http://127.0.0.1:3000/postjob",{
+                //         company_name: parsedJobList[idx].company.name,
+                //         page_id: parsedJobList[idx].id,
+                //         company_address: parsedJobList[idx].address.country + parsedJobList[idx].address.location,
+                //         hiring_position: parsedJobList[idx].position
+                //     }
+                // ).then((res)=>{
+                //     console.log(res);
+                // });
+                let stringPostData = `company_name=${parsedJobList[idx].company.name}&page_id=${parsedJobList[idx].id}&company_address=${parsedJobList[idx].address.location}&hiring_position=${parsedJobList[idx].position}`;
+                await requestSender.setRequestInterception(true);
+                requestSender.once("request", interceptedRequest =>{
+                    let data = {
+                        "method": "post",
+                        "postData": stringPostData,
+                        "headers": {
+                            ...interceptedRequest.headers(),
+                            "Content-Type": "application/x-www-form-urlencoded"
+                        },
+                    };
+
+                    interceptedRequest.continue(data);
                 });
+
+                await requestSender.goto("http://127.0.0.1:3000/postjob");
+                await requestSender.setRequestInterception(false);
 
 
             }
