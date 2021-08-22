@@ -1,10 +1,24 @@
+// example url
+// https://www.wanted.co.kr/api/v4/jobs?1628970613194&country=kr&tag_type_id=872&job_sort=job.latest_order&locations=all&years=-1&limit=20&offset=480
+// base url
+// https://www.wanted.co.kr/api/v4/jobs?
+// +
+// linux  timestamp in milli sec
+// 1628970613194
+// + 
+// options(korea, server developer, sort in latest, all location, new)
+// +
+// get 20 count hiring
+// +
+// starting offset
+// 480
 
-let target = "https://www.wanted.co.kr/api/v4/jobs?";
 
-
-
+const querystring = require("querystring");
 const puppeteer = require("puppeteer");
+const string = require("./common/constants");
 // const axios = require("axios");
+
 
 async function main(){
     let browser = await puppeteer.launch({ headless: true, devtools: true, defaultViewport: null });
@@ -17,59 +31,34 @@ async function main(){
     let jobPageList = [];
     
     while(status){
-        // example url
-        // https://www.wanted.co.kr/api/v4/jobs?1628970613194&country=kr&tag_type_id=872&job_sort=job.latest_order&locations=all&years=-1&limit=20&offset=480
-        // base url
-        // https://www.wanted.co.kr/api/v4/jobs?
-        // +
-        // linux  timestamp in mill sec
-        // 1628970613194
-        // + 
-        // options(korea, server developer, sort in latest, all location, new)
-        // +
-        // get 20 count hiring
-        // +
-        // starting offset
-        // 480
 
         const timeStamp = Date.now();
-        const tempTarget = target + timeStamp + "&country=kr&tag_type_id=872&job_sort=job.latest_order&locations=all&years=-1&limit=20&" + offset;
+        const tempTarget = String(string.url.baseURL) + timeStamp + string.url.baseURLgetQueryString + offset;
         offset += 20;
 
+        console.log(tempTarget);
         await page.goto(tempTarget);
         // eslint-disable-next-line no-undef
         let bodyHTML = await page.evaluate(() => document.body.innerText);
         const parsedJobList = JSON.parse(bodyHTML).data;
 
-
         // console.log(JSON.parse(bodyHTML));
-        for(let idx=0, len = parsedJobList.length; idx<len ; idx++){
-            console.log(parsedJobList[idx].id);
-            if(!parsedJobList.includes(parsedJobList[idx].id)){
-                jobPageList.push(parsedJobList[idx].id);
-
-                // company name:    parsedJobList[idx].company.name
-                // hiring page id:  parsedJobList[idx].id
-                // company address: parsedJobList[idx].address.country + parsedJobList[idx].address.location
-                // position:        parsedJobList[idx].position
-                // 
+        for(let  job of parsedJobList){
+            if(!parsedJobList.includes(job.id)){
+                jobPageList.push(job.id);
+                let postData = {
+                    company_name: job.company.name,
+                    page_id: job.id,
+                    company_address: job.address.country + job.address.location,
+                    hiring_position: job.position
+                };
                 
-                // axios.post(
-                //     "http://127.0.0.1:3000/postjob",{
-                //         company_name: parsedJobList[idx].company.name,
-                //         page_id: parsedJobList[idx].id,
-                //         company_address: parsedJobList[idx].address.country + parsedJobList[idx].address.location,
-                //         hiring_position: parsedJobList[idx].position
-                //     }
-                // ).then((res)=>{
-                //     console.log(res);
-                // });
-                let stringPostData = `company_name=${parsedJobList[idx].company.name}&page_id=${parsedJobList[idx].id}&company_address=${parsedJobList[idx].address.location}&hiring_position=${parsedJobList[idx].position}`;
                 await requestSender.setRequestInterception(true);
+
                 requestSender.once("request", interceptedRequest =>{
-                    let data = {
-                        "method": "post",
-                        "postData": stringPostData,
+                    const data = {
+                        "method": "POST",
+                        "postData": querystring.stringify(postData),
                         "headers": {
                             ...interceptedRequest.headers(),
                             "Content-Type": "application/x-www-form-urlencoded"
@@ -78,28 +67,19 @@ async function main(){
 
                     interceptedRequest.continue(data);
                 });
-
-                await requestSender.goto("http://127.0.0.1:3000/postjob");
+                console.log(`${postData.page_id} data sent`);
+                await requestSender.goto(string.url.targetURL);
                 await requestSender.setRequestInterception(false);
-
 
             }
             else{
                 status = false;
-                break;
             }
         }
 
-        console.log(jobPageList);
-
-
-        
     
         status = false;
     }
-
-
-
 
 }
 
